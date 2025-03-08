@@ -24,7 +24,7 @@ Status: 🔄 Work in progress
 
 Clone the repository:
 
-git clone https://github.com/your-username/code-playground.git
+git clone https://github.com/sainathch45/code-playground.git
 cd code-playground
 
 Explore the projects folder.
