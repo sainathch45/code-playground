@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Grid Forecasting</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <h1>AI-Powered Smart Grid Forecast</h1>
+    </header>
+
+    <main>
+        <div class="container">
+            <label for="state-select">Select a State:</label>
+            <select id="state-select">
+                <option value="">--Choose a State--</option>
+                {% for state in states %}
+                <option value="{{ state }}">{{ state }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="period-select">Select Forecast Period:</label>
+            <select id="period-select">
+                <option value="">--Choose Period--</option>
+                <option value="24">Next 24 hours</option>
+                <option value="72">Next 3 days</option>
+                <option value="168">Next 7 days</option>
+            </select>
+
+            <button id="predict-btn" onclick="fetchForecast()">Predict</button>
+
+            <div id="forecast-container" class="hidden">
+                <h2 id="state-name"></h2>
+                <div class="forecast-details">
+                    <div class="card"><strong>Forecast Time:</strong> <span id="forecast-time"></span></div>
+                    <div class="card"><strong>Predicted Demand:</strong> <span id="demand"></span> MW</div>
+                    <div class="card"><strong>Predicted Supply:</strong> <span id="supply"></span> MW</div>
+                    <div class="card"><strong>Renewable Contribution:</strong> <span id="renewable"></span>%</div>
+                    <div class="card"><strong>Peak Load Time:</strong> <span id="peak-time"></span></div>
+                    <div class="card"><strong>Grid Status:</strong> <span id="status"></span></div>
+                </div>
+
+                <div id="measures-container" class="hidden">
+                    <h3>Measures to Clear Deficit</h3>
+                    <ul id="measures-list"></ul>
+                </div>
+
+                <canvas id="forecast-chart"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        async function fetchForecast() {
+            const state = document.getElementById("state-select").value;
+            const period = document.getElementById("period-select").value;
+
+            if (!state) {
+                alert("Please select a state first!");
+                return;
+            }
+            if (!period) {
+                alert("Please select a forecast period!");
+                return;
+            }
+
+            const response = await fetch("/forecast", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ state, period })
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            document.getElementById("state-name").innerText = state;
+            document.getElementById("forecast-time").innerText = data.forecast_time;
+            document.getElementById("demand").innerText = data.demand;
+            document.getElementById("supply").innerText = data.supply;
+            document.getElementById("renewable").innerText = data.renewable;
+            document.getElementById("peak-time").innerText = data.peak_time;
+            document.getElementById("status").innerText = data.status;
+
+            document.getElementById("forecast-container").classList.remove("hidden");
+
+            if (data.status === "Deficit") {
+                document.getElementById("measures-list").innerHTML = data.measures.map(measure => `<li>${measure}</li>`).join("");
+                document.getElementById("measures-container").classList.remove("hidden");
+            } else {
+                document.getElementById("measures-container").classList.add("hidden");
+            }
+
+            updateChart(state, data.demand, data.supply);
+        }
+
+        function updateChart(state, demand, supply) {
+            const ctx = document.getElementById("forecast-chart").getContext("2d");
+            if (window.forecastChart) window.forecastChart.destroy();
+
+            window.forecastChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: ["Demand", "Supply"],
+                    datasets: [{
+                        label: state + " Energy Forecast (MW)",
+                        data: [demand, supply],
+                        backgroundColor: ["red", "green"]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.dataset.label + ": " + context.raw + " MW";
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
