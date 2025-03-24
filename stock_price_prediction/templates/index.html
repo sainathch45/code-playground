@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            width: 80%;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            background: #252525;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        select, button {
+            padding: 10px;
+            margin: 10px;
+            font-size: 16px;
+            width: 200px;
+            max-width: 100%;
+        }
+        #chart-container {
+            width: 100%;
+            margin: auto;
+            height: 400px;
+            margin-top: 20px;
+        }
+        .loading {
+            display: none;
+            color: yellow;
+            margin-top: 10px;
+        }
+        .confidence-meter {
+            margin-top: 20px;
+            width: 100%;
+            text-align: center;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #444;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress {
+            height: 20px;
+            background-color: limegreen;
+            width: 0%;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            font-weight: bold;
+            transition: width 0.5s ease;
+            min-width: 2%;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        @media (max-width: 600px) {
+            .container {
+                width: 95%;
+            }
+            select, button {
+                width: 100%;
+                margin: 5px 0;
+            }
+            #chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 Stock Price Predictor</h1>
+        <form id="stockForm">
+            <label for="stock_symbol">Select a Stock:</label>
+            <select name="stock_symbol" id="stock_symbol">
+                {% for stock in stocks %}
+                    <option value="{{ stock }}" {% if selected_stock == stock %} selected {% endif %}>{{ stock }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="predictStock()">Predict</button>
+            <span class="loading">Loading...</span>
+        </form>
+        <h2 id="prediction-result">
+            {% if predicted_price is not none %}
+                Predicted Price for {{ selected_stock }}: ₹{{ predicted_price }}
+            {% endif %}
+        </h2>
+        <div class="confidence-meter">
+            <h3>Confidence Level</h3>
+            <div class="progress-bar">
+                <div class="progress" id="confidence-bar">0%</div>
+            </div>
+            <p id="confidence-label"></p>
+        </div>
+        <div id="chart-container">
+            <canvas id="stockChart"></canvas>
+        </div>
+        <p id="error-message" class="error-message"></p>
+    </div>
+    <script>
+        let historicalPrices = JSON.parse('{{ historical_prices | tojson | safe }}' || '[]');
+        let historicalDates = JSON.parse('{{ historical_dates | tojson | safe }}' || '[]');
+        let chartInstance = null;
+        let loadingIndicator = document.querySelector('.loading');
+        let errorMessageDisplay = document.getElementById('error-message');
+        let stockChartCanvas = document.getElementById('stockChart');
+        let confidenceBar = document.getElementById('confidence-bar');
+        let confidenceLabel = document.getElementById('confidence-label');
+
+
+        function renderChart(labels, data) {
+            let ctx = stockChartCanvas.getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Last 30 Days Closing Prices',
+                        data: data,
+                        borderColor: 'cyan',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                color: '#ffffff'
+                            },
+                            ticks: {
+                                color: '#ffffff',
+                                autoSkip: true,
+                                maxRotation: 0,
+                                minRotation: 0
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                borderDash: [2, 2],
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Price (₹)',
+                                color: '#ffffff'
+                            },
+                            ticks: {
+                                color: '#ffffff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                borderDash: [2, 2],
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false,
+                            labels: {
+                                color: '#ffffff'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            cornerRadius: 4,
+                            displayColors: false,
+                            callbacks: {
+                                label: (context) => {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2);
+                                    }
+                                    return label;
+                                },
+                                title: (context) => {
+                                      if (context && context[0] && context[0].label) {
+                                          return 'Date: ' + context[0].label;
+                                      }
+                                      return '';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        if (historicalPrices.length > 0) {
+            renderChart(historicalDates, historicalPrices);
+        } else {
+            document.getElementById('chart-container').innerHTML = "<p>No historical data available.</p>";
+        }
+
+        async function predictStock() {
+            let stockSymbol = document.getElementById('stock_symbol').value;
+            loadingIndicator.style.display = 'inline';
+            errorMessageDisplay.textContent = '';
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ stock_symbol: stockSymbol }),
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                const data = await response.json();
+                if (data.error) {
+                    errorMessageDisplay.textContent = data.error;
+                    alert(data.error);
+                } else {
+                    document.getElementById('prediction-result').textContent =
+                        `Predicted Price for ${stockSymbol}: ₹${data.predicted_price.toFixed(2)}`;
+                    let labels = data.dates;
+                    let prices = data.closing_prices;
+                    renderChart(labels, prices);
+                    let confidence = Math.min(Math.max(data.confidence_interval, 5), 95);
+                    confidenceBar.style.width = confidence + '%';
+                    confidenceLabel.textContent = confidence.toFixed(2) + '%';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessageDisplay.textContent = 'Error: Could not fetch prediction. Please try again.';
+                alert('Error: Could not fetch prediction. Please try again.');
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
