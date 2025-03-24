@@ -20,6 +20,14 @@ Tech Stack: Python, TensorFlow/PyTorch, Medical Imaging, BraTS2020 Dataset.
 
 Status: 🔄 Work in progress
 
+3️⃣ Indian Stock Price Prediction 📈💰
+
+Description: A deep learning-based model to predict Indian stock prices using historical data and LSTM networks. The model fetches stock data via an API and provides future price predictions with confidence intervals.
+
+Tech Stack: Python, TensorFlow/Keras, LSTM, Flask, API Integration.
+
+Status: ✅ Completed
+
 🚀 How to Use
 
 Clone the repository:
