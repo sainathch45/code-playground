@@ -1,0 +1,7 @@
+streamlit
+pandas
+requests
+folium
+streamlit-folium
+keras
+tensorflow
