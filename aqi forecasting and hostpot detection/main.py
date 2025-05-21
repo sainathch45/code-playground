@@ -9,7 +9,7 @@ from model import forecast_aqi_lstm
 import cities
 import folium
 
-OWM_KEY = "3e7a81887083bf159455a13ea8b2d263"
+OWM_KEY = "<YOUR API KEY>"
 
 st.set_page_config(layout="wide")
 st.title("🌫️ AirGuard India – Real-Time AQI Monitor (via OpenWeatherMap)")
