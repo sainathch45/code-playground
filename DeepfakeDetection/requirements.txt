@@ -1,0 +1,10 @@
+torch
+torchvision
+pytorch-lightning
+gradio
+opencv-python
+PyYAML
+Pillow
+numpy
+scikit-learn
+tensorboard
